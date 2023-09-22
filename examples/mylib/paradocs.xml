@@ -1,0 +1,14 @@
+<paradocs>
+    <project>
+        <name>Mylib</name>
+        <description>A dummy library for testing Paradocs.</description>
+        <docdir>doxygen/xml</docdir>
+        <category>
+            <name>Template Classes</name>
+            <class namespace="my" file="classmy_1_1TemplateTest.xml">
+                <name>TemplateTest</name>
+                <include>&lt;template-test.h&gt;</include>
+            </class>
+        </category>
+    </project>
+</paradocs>
