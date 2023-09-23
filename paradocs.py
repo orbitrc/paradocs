@@ -106,9 +106,25 @@ class Xml:
         return None
 
     @staticmethod
-    def filter_tags(tree, name):
+    def filter_tags(tree, name, attribs=None):
         '''Return the list of the given name tag. Not recursive.'''
-        return list(filter(lambda x: x.tag == name, tree))
+        if attribs is None:
+            return list(filter(lambda x: x.tag == name, tree))
+        else:
+            ret = []
+            filtered = list(filter(lambda x: x.tag == name, tree))
+            for key in attribs:
+                value = attribs[key]
+                has_attrib_tags = filter(
+                    lambda x: key in x.attrib.keys(),
+                    filtered
+                )
+                match_tags = filter(
+                    lambda x: x.attrib[key] == value,
+                    has_attrib_tags
+                )
+                ret += list(match_tags)
+            return ret
 
 
 class DoxygenClassXml:
@@ -210,6 +226,7 @@ class DoxygenClassXml:
         return l
 
     def class_member_functions(self):
+        '''List of `MemberFunction`.'''
         root = self._tree_root
         compounddef = root[0]
         # Find <sectiondef kind="public-func">.
@@ -268,6 +285,97 @@ class DoxygenClassXml:
             prev_func = member_func
 
         return member_funcs
+
+    def member_alias_types(self):
+        root = self._tree_root
+        compounddef = root[0]
+        public_type = Xml.filter_tags(compounddef, 'sectiondef', {
+            'kind': 'public-type',
+        })
+        if len(public_type) == 0:
+            return []
+        public_type = public_type[0]
+        memberdef_typedef_list = Xml.filter_tags(public_type, 'memberdef', {
+            'kind': 'typedef',
+        })
+        ret = []
+        for memberdef in memberdef_typedef_list:
+            target_type = Xml.plain_text(Xml.find_tag(memberdef, 'type'))
+            name = Xml.plain_text(Xml.find_tag(memberdef, 'name'))
+            member_type = MemberType(self.class_name(), name, MemberType.KIND_ALIAS)
+            member_type.set_type(target_type)
+            ret.append(member_type)
+        return ret
+
+    def member_enums(self):
+        root = self._tree_root
+        compounddef = root[0]
+        public_type = Xml.filter_tags(compounddef, 'sectiondef', {
+            'kind': 'public-type',
+        })
+        if len(public_type) == 0:
+            return []
+        public_type = public_type[0]
+        memberdef_enum_list = Xml.filter_tags(public_type, 'memberdef', {
+            'kind': 'enum',
+        })
+        ret = []
+        enum_values = []
+        for memberdef in memberdef_enum_list:
+            enum_name = Xml.plain_text(Xml.find_tag(memberdef, 'name'))
+            enumvalue_list = Xml.filter_tags(memberdef, 'enumvalue')
+            for enumvalue in enumvalue_list:
+                name = Xml.plain_text(Xml.find_tag(enumvalue, 'name'))
+                brief = Xml.plain_text(
+                    Xml.find_tag(enumvalue, 'briefdescription'))
+                detail = Xml.plain_text(
+                    Xml.find_tag(enumvalue, 'detaileddescription'))
+                enum_value = {
+                    'name': name,
+                    'brief': brief,
+                    'detail': detail,
+                }
+                enum_values.append(enum_value)
+            enum = MemberType(self.class_name(), enum_name, MemberType.KIND_ENUM)
+            ret.append(enum)
+        return ret
+
+    def member_types(self):
+        return self.member_alias_types() + self.member_enums()
+
+
+class MemberType:
+    KIND_ALIAS = 0
+    KIND_ENUM = 1
+    def __init__(self, class_name, name, kind) -> None:
+        self._class_name = class_name
+        self._name = name
+        self._kind = kind
+
+        self._type = '' # Alias type
+        # Enum values.
+        # [{"name": str, "brief": str, "detail": str}]
+        self._enum_values = []
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @property
+    def alias_type(self):
+        if self.kind != MemberType.KIND_ALIAS:
+            return None
+        return self._type
+
+    def set_type(self, alias_type):
+        self._type = alias_type
+
+    def set_enum_values(self, enum_values):
+        self._enum_values = enum_values
 
 
 class MemberFunction:
@@ -380,6 +488,8 @@ class Class:
         self._member_functions = []
         self._template_params = []
 
+        self._member_types = []
+
     def set_include(self, include):
         self._include = include
 
@@ -392,6 +502,7 @@ class Class:
         self._brief = doxygen_class_xml.class_brief()
         self._member_functions = doxygen_class_xml.class_member_functions()
         self._template_params = doxygen_class_xml.class_template_params() or []
+        self._member_types = doxygen_class_xml.member_types()
 
     @property
     def name(self) -> str:
@@ -447,6 +558,26 @@ class Class:
         for member in self._member_functions:
             txt += member.table_row()
         return txt
+
+    def member_types_section(self):
+        if len(self._member_types) == 0:
+            return ''
+
+        text = '## Member Types\n\n'
+        # Aliases.
+        aliases = list(filter(lambda x: x.kind == MemberType.KIND_ALIAS, self._member_types))
+        if len(aliases) > 0:
+            text += '**Aliases**\n\n'
+        for alias in aliases:
+            text += f'using {alias.name} = {alias.alias_type}\n\n'
+        # Enum classes.
+        enums = list(filter(lambda x: x.kind == MemberType.KIND_ENUM, self._member_types))
+        if len(enums) != 0:
+            text += '**Enums**\n\n'
+        for enum in enums:
+            text += f'enum class {enum.name}\n\n'
+
+        return text
 
 
 class Project:
@@ -574,6 +705,8 @@ class Project:
         txt += '## Member Functions\n\n'
         txt += klass.member_functions_table()
         txt += '\n'
+        # "## Member Types"
+        txt += klass.member_types_section()
         txt += '## Member Function Details\n\n'
         for func in klass.member_functions:
             txt += func.heading() + '\n\n'
@@ -595,7 +728,7 @@ if __name__ == '__main__':
         if opt == '--test':
             print(project.index_page())
             print('---------------------------')
-            print(project.class_page('TemplateTest'))
+            print(project.class_page('EnumTest'))
             exit(0)
         elif opt == '--version':
             print('Paradocs v0.1.0')

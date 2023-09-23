@@ -10,5 +10,12 @@
                 <include>&lt;template-test.h&gt;</include>
             </class>
         </category>
+        <category>
+            <name>Nested Enum and Type Aliases</name>
+            <class namespace="my" file="classmy_1_1EnumTest.xml">
+                <name>EnumTest</name>
+                <include>&lt;enum-test.h&gt;</include>
+            </class>
+        </category>
     </project>
 </paradocs>
