@@ -320,8 +320,8 @@ class DoxygenClassXml:
             'kind': 'enum',
         })
         ret = []
-        enum_values = []
         for memberdef in memberdef_enum_list:
+            enum_values = []
             enum_name = Xml.plain_text(Xml.find_tag(memberdef, 'name'))
             enumvalue_list = Xml.filter_tags(memberdef, 'enumvalue')
             for enumvalue in enumvalue_list:
@@ -332,11 +332,12 @@ class DoxygenClassXml:
                     Xml.find_tag(enumvalue, 'detaileddescription'))
                 enum_value = {
                     'name': name,
-                    'brief': brief,
-                    'detail': detail,
+                    'brief': brief.strip(),
+                    'detail': detail.strip(),
                 }
                 enum_values.append(enum_value)
             enum = MemberType(self.class_name(), enum_name, MemberType.KIND_ENUM)
+            enum.set_enum_values(enum_values)
             ret.append(enum)
         return ret
 
@@ -371,11 +372,37 @@ class MemberType:
             return None
         return self._type
 
+    @property
+    def anchor_id(self):
+        '''Only for KIND_ENUM.'''
+        return f'enum-{self.name.lower()}'
+
     def set_type(self, alias_type):
         self._type = alias_type
 
     def set_enum_values(self, enum_values):
         self._enum_values = enum_values
+
+    def heading(self, compatible_mode=True):
+        if self.kind == MemberType.KIND_ALIAS:
+            return ''
+        if compatible_mode == True:
+            return f'<h3 id="{self.anchor_id}">{self.name}</h3>'
+        else:
+            return f'### {self.name} {{#{self._anchor_id}}}'
+
+    def table(self):
+        if self.kind == MemberType.KIND_ALIAS:
+            return ''
+        head = ['Name', 'Description']
+        body = []
+        for enum_value in self._enum_values:
+            name = enum_value['name']
+            desc = enum_value['brief']
+            if enum_value['detail'] != '':
+                desc += '<br />' + enum_value['detail']
+            body.append([name, desc])
+        return Markdown.table(head, body)
 
 
 class MemberFunction:
@@ -575,7 +602,21 @@ class Class:
         if len(enums) != 0:
             text += '**Enums**\n\n'
         for enum in enums:
-            text += f'enum class {enum.name}\n\n'
+            link = f'#{enum.anchor_id}'
+            text += f'enum class {Markdown.link(enum.name, link)}\n\n'
+
+        return text
+
+    def member_type_details_section(self):
+        member_types = list(filter(lambda x: x.kind == MemberType.KIND_ENUM, self._member_types))
+        if len(member_types) == 0:
+            return ''
+
+        text = '## Member Type Details\n\n'
+
+        for member_type in member_types:
+            text += member_type.heading() + '\n\n'
+            text += member_type.table() + '\n\n'
 
         return text
 
@@ -707,6 +748,7 @@ class Project:
         txt += '## Member Functions\n\n'
         txt += klass.member_functions_table()
         txt += '\n'
+        txt += klass.member_type_details_section()
         txt += '## Member Function Details\n\n'
         for func in klass.member_functions:
             txt += func.heading() + '\n\n'
