@@ -702,11 +702,11 @@ class Project:
         txt += '\n\n'
         txt += klass.h1_table()
         txt += '\n\n'
+        # "## Member Types"
+        txt += klass.member_types_section()
         txt += '## Member Functions\n\n'
         txt += klass.member_functions_table()
         txt += '\n'
-        # "## Member Types"
-        txt += klass.member_types_section()
         txt += '## Member Function Details\n\n'
         for func in klass.member_functions:
             txt += func.heading() + '\n\n'
