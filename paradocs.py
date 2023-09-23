@@ -16,67 +16,11 @@
 
 import os
 import sys
-import re
 import xml.etree.ElementTree as ET
 
-class Markdown:
-    '''Markdown helper class.'''
-    @staticmethod
-    def table(head, data):
-        '''head: [str, str], data: [[str, str]...]'''
-        txt = f'| {head[0]} | {head[1]} |\n'
-        txt += '|-----------|-----------|\n'
-        for pair in data:
-            txt += f'| {pair[0]} | {pair[1]} |\n'
+from typing import List
 
-        return txt
-
-    @staticmethod
-    def link(text, link):
-        return f'[{text}]({link})'
-
-
-class CppCode:
-    '''C++ header code helper class.'''
-    @staticmethod
-    def normalize_template(code):
-        reg = '([^< ]+) *<(.+)>'
-
-        code = code.strip()
-        m = re.search(reg, code)
-        if m is None:
-            return code
-        origin = m.groups()[0].strip()
-        return origin + '<' + CppCode.normalize_template(m.groups()[1]) + '>'
-    
-    @staticmethod
-    def normalize_param(code):
-        reg_full = '(const)? *([^&]+) *(&)? *([\*]+)? *(.+)'
-        reg_template = '<(.+)>'
-
-        code = code.strip()
-        m = re.search(reg_full, code)
-        is_const = m.groups()[0] is not None
-        plain_type = m.groups()[1]
-        is_template = re.search(reg_template, plain_type) is not None
-        is_ref = m.groups()[2] is not None
-        is_ptr = m.groups()[3] is not None
-        param_name = m.groups()[4]
-
-        normalized = ''
-        if is_const:
-            normalized += 'const '
-        if is_template:
-            normalized += CppCode.normalize_template(plain_type)
-        else:
-            normalized += plain_type
-        if is_ref:
-            normalized += '& '
-        if is_ptr:
-            normalized += ' *'
-        normalized += param_name
-
-        return normalized
+from paradocs_lib import Markdown, CppCode, MemberType, MemberFunction
 
 
 class Xml:
@@ -225,7 +169,7 @@ class DoxygenClassXml:
 
         return l
 
-    def class_member_functions(self):
+    def class_member_functions(self) -> List[MemberFunction]:
         '''List of `MemberFunction`.'''
         root = self._tree_root
         compounddef = root[0]
@@ -286,7 +230,7 @@ class DoxygenClassXml:
 
         return member_funcs
 
-    def member_alias_types(self):
+    def member_alias_types(self) -> List[MemberType]:
         root = self._tree_root
         compounddef = root[0]
         public_type = Xml.filter_tags(compounddef, 'sectiondef', {
@@ -307,7 +251,7 @@ class DoxygenClassXml:
             ret.append(member_type)
         return ret
 
-    def member_enums(self):
+    def member_enums(self) -> List[MemberType]:
         root = self._tree_root
         compounddef = root[0]
         public_type = Xml.filter_tags(compounddef, 'sectiondef', {
@@ -316,9 +260,8 @@ class DoxygenClassXml:
         if len(public_type) == 0:
             return []
         public_type = public_type[0]
-        memberdef_enum_list = Xml.filter_tags(public_type, 'memberdef', {
-            'kind': 'enum',
-        })
+        memberdef_enum_list = Xml.filter_tags(public_type,
+            'memberdef', { 'kind': 'enum', })
         ret = []
         for memberdef in memberdef_enum_list:
             enum_values = []
@@ -336,172 +279,17 @@ class DoxygenClassXml:
                     'detail': detail.strip(),
                 }
                 enum_values.append(enum_value)
+            enum_brief = Xml.plain_text(Xml.filter_tags(memberdef, 'briefdescription')[0])
+            enum_detail = Xml.plain_text(Xml.filter_tags(memberdef, 'detaileddescription')[0])
             enum = MemberType(self.class_name(), enum_name, MemberType.KIND_ENUM)
             enum.set_enum_values(enum_values)
+            enum.set_brief(enum_brief)
+            enum.set_detail(enum_detail)
             ret.append(enum)
         return ret
 
     def member_types(self):
         return self.member_alias_types() + self.member_enums()
-
-
-class MemberType:
-    KIND_ALIAS = 0
-    KIND_ENUM = 1
-    def __init__(self, class_name, name, kind) -> None:
-        self._class_name = class_name
-        self._name = name
-        self._kind = kind
-
-        self._type = '' # Alias type
-        # Enum values.
-        # [{"name": str, "brief": str, "detail": str}]
-        self._enum_values = []
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def kind(self):
-        return self._kind
-
-    @property
-    def alias_type(self):
-        if self.kind != MemberType.KIND_ALIAS:
-            return None
-        return self._type
-
-    @property
-    def anchor_id(self):
-        '''Only for KIND_ENUM.'''
-        return f'enum-{self.name.lower()}'
-
-    def set_type(self, alias_type):
-        self._type = alias_type
-
-    def set_enum_values(self, enum_values):
-        self._enum_values = enum_values
-
-    def heading(self, compatible_mode=True):
-        if self.kind == MemberType.KIND_ALIAS:
-            return ''
-        if compatible_mode == True:
-            return f'<h3 id="{self.anchor_id}">{self.name}</h3>'
-        else:
-            return f'### {self.name} {{#{self._anchor_id}}}'
-
-    def table(self):
-        if self.kind == MemberType.KIND_ALIAS:
-            return ''
-        head = ['Name', 'Description']
-        body = []
-        for enum_value in self._enum_values:
-            name = enum_value['name']
-            desc = enum_value['brief']
-            if enum_value['detail'] != '':
-                desc += '<br />' + enum_value['detail']
-            body.append([name, desc])
-        return Markdown.table(head, body)
-
-
-class MemberFunction:
-    def __init__(self, class_name, name, type, args) -> None:
-        self._class_name = class_name
-        self._name = name
-        self._type = type
-        self._args = args
-        self._const = False
-        self._overloading_index = 0
-        self._brief = ''
-        self._detail = ''
-        self._template_params = [] # e.g. ['typename T', 'int num']
-
-    def set_const(self, const):
-        self._const = const
-
-    def set_overloading_index(self, index):
-        self._overloading_index = index
-
-    def set_brief(self, brief):
-        self._brief = brief
-
-    def set_detail(self, detail):
-        self._detail = detail
-
-    def set_template_params(self, params):
-        self._template_params = params
-
-    def is_constructor(self):
-        if self._type == '':
-            return True
-        return False
-
-    def is_template(self):
-        return len(self._template_params) > 0
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def overloading_index(self):
-        return self._overloading_index
-
-    @property
-    def anchor_id(self):
-        anchor = self._name.lower()
-        if self._overloading_index > 0:
-            anchor += str(self._overloading_index)
-
-        return anchor
-
-    @property
-    def brief(self):
-        return self._brief
-
-    @property
-    def detail(self):
-        return self._detail
-
-    def table_row(self):
-        col1 = self._type
-        col2 = Markdown.link(self._name, f'#{self.anchor_id}')
-        col2 += '('
-        col2 += ', '.join(self._args)
-        col2 += ')'
-        if self._const is True:
-            col2 += ' const'
-
-        return f'| {col1} | {col2} |\n'
-
-    def heading(self, compatible_mode=True):
-        text = f'{self._type} {self._class_name}::{self._name}('
-        text += ', '.join(self._args)
-        text += ')'
-        if self._const is True:
-            text += ' const'
-
-        ret = ''
-        if compatible_mode is True:
-            ret = f'<h3 id="{self.anchor_id}">{text}</h3>'
-        else:
-            ret = f'### {text} {{#{self._anchor_id}}}'
-
-        return ret
-
-    def description(self):
-        text = self.brief + '\n\n'
-        text += self.detail + '\n'
-
-        return text
-
-    def template_decl(self):
-        text = '**template <'
-        text += ', '.join(self._template_params)
-        text += '>**'
-
-        return text
 
 
 class Class:
@@ -608,6 +396,7 @@ class Class:
         return text
 
     def member_type_details_section(self):
+        '''Only KIND_ENUM.'''
         member_types = list(filter(lambda x: x.kind == MemberType.KIND_ENUM, self._member_types))
         if len(member_types) == 0:
             return ''
@@ -616,6 +405,7 @@ class Class:
 
         for member_type in member_types:
             text += member_type.heading() + '\n\n'
+            text += member_type.description() + '\n'
             text += member_type.table() + '\n\n'
 
         return text
@@ -689,7 +479,7 @@ class Project:
 
     @staticmethod
     def _find_category_name(category_tree):
-        '''Extract name tag from the category tag.'''
+        '''Extract name tag text from the category tag.'''
         for child in category_tree:
             if child.tag == 'name':
                 return child.text
