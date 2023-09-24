@@ -1,6 +1,7 @@
 from typing import List
 
 from .markdown import Markdown
+from .cpp_code import CppCode
 
 class MemberFunction:
     def __init__(self, class_name, name, type, args) -> None:
@@ -42,6 +43,13 @@ class MemberFunction:
         return self._name
 
     @property
+    def type(self) -> str:
+        t = self._type
+        if t.find('<') != -1:
+            return CppCode.normalize_template(t)
+        return t
+
+    @property
     def overloading_index(self):
         return self._overloading_index
 
@@ -62,7 +70,7 @@ class MemberFunction:
         return self._detail
 
     def table_row(self):
-        col1 = self._type
+        col1 = self.type
         col2 = Markdown.link(self._name, f'#{self.anchor_id}')
         col2 += '('
         col2 += ', '.join(self._args)
@@ -73,7 +81,7 @@ class MemberFunction:
         return f'| {col1} | {col2} |\n'
 
     def heading(self, compatible_mode=True):
-        text = f'{self._type} {self._class_name}::{self._name}('
+        text = f'{self.type} {self._class_name}::{self._name}('
         text += ', '.join(self._args)
         text += ')'
         if self._const is True:
