@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <functional>
+
 namespace my {
 
 template <typename T, typename U, int32_t num>
@@ -20,6 +22,9 @@ public:
     /// \brief Other template type test function.
     template <typename U>
     TemplateTest<U> template_function() const;
+
+    /// \brief std::function param test.
+    void call_function(std::function<void(int32_t)> func);
 };
 
 } // namespace my

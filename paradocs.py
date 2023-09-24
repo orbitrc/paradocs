@@ -561,6 +561,8 @@ if __name__ == '__main__':
             print(project.index_page())
             print('---------------------------')
             print(project.class_page('EnumTest'))
+            print('---------------------------')
+            print(project.class_page('TemplateTest'))
             exit(0)
         elif opt == '--version':
             print('Paradocs v0.1.0')
