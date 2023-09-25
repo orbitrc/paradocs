@@ -432,6 +432,15 @@ class Project:
     def outdir(self) -> str:
         return self._outdir
 
+    def classes(self) -> List[Class]:
+        '''Return classes in a flat list.'''
+        ret: List[Class] = []
+        for category in self._classes:
+            classes = self._classes[category]
+            ret = ret + classes
+
+        return ret
+
     def parse_metadata(self):
         root = self._root
         project = root[0]
@@ -574,7 +583,15 @@ if __name__ == '__main__':
     # Make directory.
     os.makedirs(project.outdir, exist_ok=True)
     # Index page.
+    print('Writing index file...', end='')
     f = open(project.outdir + '/index.md', 'w')
     f.write(project.index_page())
     f.close()
+    print(' Done.')
     # Class pages.
+    for klass in project.classes():
+        print('Writing class file for ' + klass.name + '...', end='')
+        f = open(project.outdir + '/' + klass.link + '.md', 'w')
+        f.write(project.class_page(klass.name))
+        f.close()
+        print(' Done.')
