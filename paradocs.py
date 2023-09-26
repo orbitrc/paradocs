@@ -321,6 +321,7 @@ class Class:
 
     @property
     def name(self) -> str:
+        '''Fully qualified name without namespace.'''
         return self._name
 
     @property
@@ -412,7 +413,7 @@ class Class:
 
 
 class Project:
-    def __init__(self, filename):
+    def __init__(self, filename: str):
         self._filename = filename
         self._name = ''
         self._description = ''
@@ -421,7 +422,7 @@ class Project:
         self._docdir = ''
         self._outdir = 'paradocs'
         self._basepath = '/'
-        self._category_trees = []
+        self._category_trees: List[ET.Element] = []
         self._classes = {} # {"Category": [], ...}
 
         self._root = ET.parse(filename).getroot()
@@ -505,7 +506,7 @@ class Project:
                 self._classes[category_name].append(klass)
 
     @staticmethod
-    def _find_category_name(category_tree):
+    def _find_category_name(category_tree: ET.Element) -> str:
         '''Extract name tag text from the category tag.'''
         for child in category_tree:
             if child.tag == 'name':
@@ -513,7 +514,7 @@ class Project:
 
         return None
 
-    def index_page(self):
+    def index_page(self) -> str:
         txt = '# ' + self._name
         txt = txt + '\n\n'
         txt = txt + Markdown.table(
@@ -539,9 +540,9 @@ class Project:
 
         return txt
 
-    def class_page(self, class_name):
+    def class_page(self, class_name) -> str:
         # Find class.
-        klass = None
+        klass: Class | None = None
         for category in self._classes:
             class_list = self._classes[category]
             for cls in class_list:
