@@ -416,6 +416,8 @@ class Project:
         self._filename = filename
         self._name = ''
         self._description = ''
+        self._version = ''
+        self._namespace = ''
         self._docdir = ''
         self._outdir = 'paradocs'
         self._basepath = '/'
@@ -432,6 +434,14 @@ class Project:
     def outdir(self) -> str:
         return self._outdir
 
+    @property
+    def version(self) -> str:
+        return self._version
+
+    @property
+    def namespace(self) -> str:
+        return self._namespace
+
     def classes(self) -> List[Class]:
         '''Return classes in a flat list.'''
         ret: List[Class] = []
@@ -446,6 +456,14 @@ class Project:
         project = root[0]
         self._name = Xml.plain_text(Xml.find_tag(project, 'name'))
         self._description = Xml.plain_text(Xml.find_tag(project, 'description'))
+        # Version and namespace.
+        version = Xml.find_tag(project, 'version')
+        if version is not None:
+            self._version = Xml.plain_text(version)
+        namespace = Xml.find_tag(project, 'namespace')
+        if namespace is not None:
+            self._namespace = Xml.plain_text(namespace)
+        # Set docdir.
         self._docdir = Xml.plain_text(Xml.find_tag(project, 'docdir'))
         # Set outdir.
         outdir = Xml.find_tag(project, 'outdir')
@@ -498,8 +516,10 @@ class Project:
     def index_page(self):
         txt = '# ' + self._name
         txt = txt + '\n\n'
-        txt = txt + Markdown.table(['-', '-'],
-            [['Version', 'x.y'], ['Namespace', '']])
+        txt = txt + Markdown.table(
+            ['-', '-'],
+            [['Version', self.version], ['Namespace', self.namespace]]
+        )
         txt = txt + '\n'
         txt = txt + self._description
         txt = txt + '\n'

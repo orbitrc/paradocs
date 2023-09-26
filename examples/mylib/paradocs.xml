@@ -2,6 +2,8 @@
     <project>
         <name>Mylib</name>
         <description>A dummy library for testing Paradocs.</description>
+        <version>1.0</version>
+        <namespace>my</namespace>
         <docdir>doxygen/xml</docdir>
         <category>
             <name>Template Classes</name>
