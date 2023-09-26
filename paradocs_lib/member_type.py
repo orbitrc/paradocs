@@ -20,6 +20,15 @@ class MemberType:
         return self._name
 
     @property
+    def class_name(self) -> str:
+        return self._class_name
+
+    @property
+    def full_name(self) -> str:
+        '''Fully qualified name of the type. Namespace is not included.'''
+        return self.class_name + '::' + self.name
+
+    @property
     def kind(self):
         return self._kind
 
