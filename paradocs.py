@@ -20,7 +20,11 @@ import xml.etree.ElementTree as ET
 
 from typing import List
 
-from paradocs_lib import Markdown, CppCode, MemberType, MemberFunction
+from paradocs_lib import (
+    Markdown, CppCode,
+    MemberType, MemberFunction,
+    TypeDictionary,
+)
 
 
 class Xml:
@@ -325,6 +329,10 @@ class Class:
         return self._name
 
     @property
+    def relative_name(self) -> str:
+        return self.name.rsplit('::', 1)[-1]
+
+    @property
     def include(self):
         return self._include
 
@@ -359,14 +367,33 @@ class Class:
         split = self.name.rsplit('::', 1)
         return split[0]
 
-    def h1_table(self):
-        txt = '| - | - |\n'
-        txt += '|---|---|\n'
+    def member_enums(self) -> List[MemberType]:
+        '''Filter member types that kind is enum.'''
+        f = filter(lambda x: x.kind == MemberType.KIND_ENUM,
+            self._member_types)
+        return list(f)
+
+    def h1_table(self, type_dictionary: TypeDictionary | None=None):
         # Escape < and >.
         include = self.include.replace('<', '\\<')
         include = include.replace('>', '\\>')
-        txt += f'| Include | {include} |\n'
-        return txt
+
+        head = ['-', '-']
+        body = [
+            ['Include', f'{include}'],
+        ]
+        # Class hierarchy.
+        if self.enclosing_class != '' and type_dictionary is not None:
+            text = self.relative_name
+            name = self.enclosing_class
+            t = type_dictionary.get_type(name)
+            while t is not None:
+                linked = Markdown.link(t.relative_name, t.link)
+                text = f'{linked}::' + text
+                t = type_dictionary.get_type(t.enclosing_class)
+            body.append(['Hierarchy', text])
+
+        return Markdown.table(head, body)
 
     def member_functions_table(self):
         txt = '| Return | Declaration |\n'
@@ -398,7 +425,10 @@ class Class:
 
     def member_type_details_section(self):
         '''Only KIND_ENUM.'''
-        member_types = list(filter(lambda x: x.kind == MemberType.KIND_ENUM, self._member_types))
+        member_types: List[MemberType] = list(filter(
+            lambda x: x.kind == MemberType.KIND_ENUM,
+            self._member_types
+        ))
         if len(member_types) == 0:
             return ''
 
@@ -424,6 +454,7 @@ class Project:
         self._basepath = '/'
         self._category_trees: List[ET.Element] = []
         self._classes = {} # {"Category": [], ...}
+        self._type_dictionary = TypeDictionary()
 
         self._root = ET.parse(filename).getroot()
 
@@ -451,6 +482,10 @@ class Project:
             ret = ret + classes
 
         return ret
+
+    def type_dictionary(self) -> TypeDictionary:
+        '''Return TypeDictionary object.'''
+        return self._type_dictionary
 
     def parse_metadata(self):
         root = self._root
@@ -504,6 +539,15 @@ class Project:
                 klass.set_file(klass_file)
                 klass.parse_file(self._docdir)
                 self._classes[category_name].append(klass)
+
+                # Type dictionary.
+                t = TypeDictionary.Type(klass.name,
+                    TypeDictionary.Type.KIND_CLASS)
+                self._type_dictionary.add_type(t)
+                for enum in klass.member_enums():
+                    t = TypeDictionary.Type(enum.full_name,
+                        TypeDictionary.Type.KIND_ENUM)
+                    self._type_dictionary.add_type(t)
 
     @staticmethod
     def _find_category_name(category_tree: ET.Element) -> str:
@@ -561,7 +605,7 @@ class Project:
             txt += '\n\n'
         txt += klass.brief
         txt += '\n\n'
-        txt += klass.h1_table()
+        txt += klass.h1_table(self.type_dictionary())
         txt += '\n\n'
         # "## Member Types"
         txt += klass.member_types_section()
@@ -588,11 +632,14 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         opt = sys.argv[1]
         if opt == '--test':
+            print(project.type_dictionary())
             print(project.index_page())
             print('---------------------------')
             print(project.class_page('EnumTest'))
             print('---------------------------')
             print(project.class_page('TemplateTest'))
+            print('---------------------------')
+            print(project.class_page('Enclosing::Nested'))
             exit(0)
         elif opt == '--version':
             print('Paradocs v0.1.0')

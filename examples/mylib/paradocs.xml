@@ -18,6 +18,14 @@
                 <name>EnumTest</name>
                 <include>&lt;enum-test.h&gt;</include>
             </class>
+            <class namespace="my" file="classmy_1_1Enclosing.xml">
+                <name>Enclosing</name>
+                <include>&lt;nested-test.h&gt;</include>
+            </class>
+            <class namespace="my" file="classmy_1_1Enclosing_1_1Nested.xml">
+                <name>Enclosing::Nested</name>
+                <include>&lt;nested-test.h&gt;</include>
+            </class>
         </category>
     </project>
 </paradocs>
