@@ -91,12 +91,11 @@ class DoxygenClassXml:
         '''Get plain text from tree. Keep backticks.'''
         text = tree.text or ''
         text = text.lstrip()
-        if tree.tag == 'computeroutput':
-            text += f'`{Xml.plain_text(tree)}`'
         for child in tree:
             if child.tag == 'computeroutput':
-                continue
-            text += DoxygenClassXml.description_text(child)
+                text += f'`{Xml.plain_text(child)}`'
+            else:
+                text += DoxygenClassXml.description_text(child)
             text += child.tail or ''
         text = text.strip()
 
@@ -182,9 +181,9 @@ class DoxygenClassXml:
 
             # Get brief and detail descriptions.
             brief = Xml.filter_tags(memberdef, 'briefdescription')[0]
-            brief = DoxygenClassXml._plain_text(brief).strip()
+            brief = DoxygenClassXml.description_text(brief)
             detail = Xml.filter_tags(memberdef, 'detaileddescription')[0]
-            detail = DoxygenClassXml._plain_text(detail).strip()
+            detail = DoxygenClassXml.description_text(detail)
 
             member_func = MemberFunction(class_name, name, ret_type, args)
             if attributes['const'] == 'yes':
