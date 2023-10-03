@@ -104,11 +104,7 @@ class DoxygenClassXml:
     def class_name(self, prepend_namespace=False):
         root = self._tree_root
         compounddef = root[0]
-        compoundname = None
-        for child in compounddef:
-            if child.tag == 'compoundname':
-                compoundname = child
-                break
+        compoundname = Xml.find_tag(compounddef, 'compoundname')
         name = compoundname.text
         if prepend_namespace is False:
             name = name.replace(f'{self._namespace}::', '')
