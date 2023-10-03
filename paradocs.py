@@ -133,6 +133,22 @@ class DoxygenClassXml:
 
         return text
 
+    @staticmethod
+    def description_text(tree: ET.Element) -> str:
+        '''Get plain text from tree. Keep backticks.'''
+        text = tree.text or ''
+        text = text.lstrip()
+        if tree.tag == 'computeroutput':
+            text += f'`{Xml.plain_text(tree)}`'
+        for child in tree:
+            if child.tag == 'computeroutput':
+                continue
+            text += DoxygenClassXml.description_text(child)
+            text += child.tail or ''
+        text = text.strip()
+
+        return text
+
     def class_name(self, prepend_namespace=False):
         root = self._tree_root
         compounddef = root[0]
@@ -640,6 +656,8 @@ if __name__ == '__main__':
             print(project.class_page('TemplateTest'))
             print('---------------------------')
             print(project.class_page('Enclosing::Nested'))
+            print('---------------------------')
+            print(project.class_page('Enclosing'))
             exit(0)
         elif opt == '--version':
             print('Paradocs v0.1.0')
