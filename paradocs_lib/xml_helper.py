@@ -16,6 +16,20 @@ class Xml:
         return txt
 
     @staticmethod
+    def plain_text_exclude(tree: ET.Element, exclude):
+        '''Extract plain text from the tag exclude given tags.'''
+        text = tree.text or ''
+
+        for child in tree:
+            if child.tag in exclude:
+                pass
+            else:
+                text += Xml.plain_text_exclude(child, exclude)
+            text += child.tail or ''
+
+        return text.strip()
+
+    @staticmethod
     def find_tag(tree: ET.Element, name: str):
         '''Return the tag with the given name. Recursive.'''
         if tree.tag == name:

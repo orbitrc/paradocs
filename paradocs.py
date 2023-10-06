@@ -25,6 +25,7 @@ from paradocs_lib import (
     MemberType, MemberFunction,
     TypeDictionary,
     Xml,
+    DetailedDescription,
 )
 
 
