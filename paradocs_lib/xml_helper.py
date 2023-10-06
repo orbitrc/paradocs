@@ -41,6 +41,14 @@ class Xml:
         return None
 
     @staticmethod
+    def find_tag_direct(tree: ET.Element, name: str):
+        '''Return the child tag with the given name. NOT recursive.'''
+        l = list(filter(lambda x: x.tag == name, tree))
+        if len(l) == 0:
+            return None
+        return l[0]
+
+    @staticmethod
     def filter_tags(tree: ET.Element, name: str, attribs=None):
         '''Return the list of the given name tag. Not recursive.'''
         if attribs is None:

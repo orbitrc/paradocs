@@ -35,28 +35,6 @@ class DoxygenClassXml:
         return txt
 
     @staticmethod
-    def _get_tag(tree, name):
-        '''Return the tag with the given name.'''
-        if tree.tag == name:
-            return tree
-        for child in tree:
-            found = DoxygenClassXml._get_tag(child, name)
-            if found is not None:
-                return found
-        return None
-
-    @staticmethod
-    def _plain_text(tree):
-        txt = tree.text or ''
-
-        for child in tree:
-            txt += DoxygenClassXml._plain_text(child)
-
-        txt += tree.tail or ''
-
-        return txt
-
-    @staticmethod
     def template_param(param_tree):
         text = ''
         text += Xml.plain_text(Xml.find_tag(param_tree, 'type'))
@@ -122,23 +100,20 @@ class DoxygenClassXml:
         root = self._tree_root
         compounddef = root[0]
         # Find <sectiondef kind="public-func">.
-        public_func = None
-        sectiondef_tags = Xml.filter_tags(compounddef, 'sectiondef')
-        for sectiondef in sectiondef_tags:
-            if sectiondef.attrib['kind'] == 'public-func':
-                public_func = sectiondef
-                break
-        if public_func is None:
+        sectiondef_tags = Xml.filter_tags(compounddef, 'sectiondef',
+            {'kind': 'public-func'})
+        if len(sectiondef_tags) == 0:
             return []
+        public_func = sectiondef_tags[0]
 
         prev_func = None
         member_funcs = []
         for memberdef in public_func:
             attributes = memberdef.attrib
             class_name = self.class_name()
-            name = self._get_tag(memberdef, 'name').text
-            type_tag = Xml.filter_tags(memberdef, 'type')[0]
-            ret_type = self._plain_text(type_tag).strip()
+            name = Xml.find_tag_direct(memberdef, 'name').text
+            type_tag = Xml.find_tag_direct(memberdef, 'type')
+            ret_type = Xml.plain_text(type_tag).strip()
             # Check if template.
             template_params = []
             templateparamlist = Xml.find_tag(memberdef, 'templateparamlist')
@@ -150,7 +125,7 @@ class DoxygenClassXml:
             param_tags = Xml.filter_tags(memberdef, 'param')
             args = []
             for param in param_tags:
-                arg_str = DoxygenClassXml._plain_text(param).strip()
+                arg_str = Xml.plain_text(param).strip()
                 arg_str = arg_str.replace('\n', '')
                 arg_str = CppCode.normalize_param(arg_str)
                 args.append(arg_str)
