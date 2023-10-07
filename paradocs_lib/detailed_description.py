@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 
 from .xml_helper import Xml
+from .doxygen_class_xml import DoxygenClassXml
 
 
 class DetailedDescription:
@@ -41,7 +42,8 @@ class DetailedDescription:
                     self._params.append(param)
 
         # Description.
-        desc = Xml.plain_text_exclude(para, ['simplesect', 'parameterlist'])
+        desc = DoxygenClassXml.description_text_exclude(para,
+            ['simplesect', 'parameterlist'])
         self._description = desc
 
     @property

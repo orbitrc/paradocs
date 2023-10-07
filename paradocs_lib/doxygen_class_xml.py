@@ -59,6 +59,23 @@ class DoxygenClassXml:
 
         return text
 
+    @staticmethod
+    def description_text_exclude(tree: ET.Element, exclude) -> str:
+        '''Get text from tree. Keep backticks. Exclude tags.'''
+        text = tree.text or ''
+        text = text.lstrip()
+        for child in tree:
+            if child.tag in exclude:
+                pass
+            else:
+                if child.tag == 'computeroutput':
+                    text += f'`{Xml.plain_text(child)}`'
+                else:
+                    text += DoxygenClassXml.description_text_exclude(
+                        child, exclude)
+            text += child.tail or ''
+        return text.strip()
+
     def class_name(self, prepend_namespace=False):
         root = self._tree_root
         compounddef = root[0]
@@ -214,3 +231,24 @@ class DoxygenClassXml:
     def member_types(self):
         return self.member_alias_types() + self.member_enums()
 
+
+if __name__ == '__main__':
+    xml = '''        <detaileddescription>
+<para><simplesect kind="since"><para>0.1 </para>
+</simplesect>
+<parameterlist kind="param"><parameteritem>
+<parameternamelist>
+<parametername>nested</parametername>
+</parameternamelist>
+<parameterdescription>
+<para>A <computeroutput><ref refid="classmy_1_1Enclosing_1_1Nested" kindref="compound">Nested</ref></computeroutput> object.</para>
+</parameterdescription>
+</parameteritem>
+</parameterlist>
+This function do something with `Some` class. but nobody knows what is the something. </para>
+        </detaileddescription>'''
+
+    root = ET.fromstring(xml)
+    detail = DoxygenClassXml.description_text_exclude(root,
+        ['simplesect', 'parameterlist'])
+    print(detail)
