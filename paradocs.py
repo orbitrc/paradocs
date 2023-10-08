@@ -36,7 +36,7 @@ class Class:
         self._include = ''
         self._file = ''
         self._brief = ''
-        self._detail = ''
+        self._detail: DetailedDescription = None
         self._member_functions = []
         self._template_params = []
 
@@ -66,12 +66,17 @@ class Class:
         return self.name.rsplit('::', 1)[-1]
 
     @property
-    def include(self):
+    def include(self) -> str:
+        '''Header file for using this class. e.g. "<mylib/obj.h>".'''
         return self._include
 
     @property
     def brief(self):
         return self._brief
+
+    @property
+    def detail(self) -> DetailedDescription:
+        return self._detail
 
     @property
     def member_functions(self):
@@ -266,7 +271,7 @@ class Project:
                         klass_name = child.text
                     elif child.tag == 'include':
                         klass_include = child.text
-                
+
                 klass = Class(klass_ns, klass_name)
                 klass.set_include(klass_include)
                 klass.set_file(klass_file)
